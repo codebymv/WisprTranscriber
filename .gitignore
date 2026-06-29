@@ -1,0 +1,40 @@
+# Dependencies
+node_modules/
+
+# Extension build output
+dist/
+extension/dist/
+
+# Companion runtime output
+data/
+companion/data/
+uploads/
+jobs/
+
+# Local secrets and environment overrides
+.env
+.env.*
+!.env.example
+companion/.env
+companion/.env.*
+!companion/.env.example
+
+# Logs and diagnostics
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# OS/editor noise
+.DS_Store
+Thumbs.db
+desktop.ini
+.vscode/
+.idea/
+
+# Temporary files
+*.tmp
+*.temp
+*.swp
+*.swo

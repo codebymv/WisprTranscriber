@@ -1,0 +1,12 @@
+{
+  "manifest_version": 3,
+  "name": "Wispr Transcriber",
+  "version": "0.1.0",
+  "description": "Upload audio to a local companion service for compression, splitting, transcription, and transcript downloads.",
+  "action": {
+    "default_title": "Wispr Transcriber",
+    "default_popup": "popup.html"
+  },
+  "permissions": ["storage"],
+  "host_permissions": ["http://127.0.0.1:8788/*"]
+}

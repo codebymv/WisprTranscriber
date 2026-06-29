@@ -1,0 +1,13 @@
+{
+  "name": "wispr-transcriber",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Local-first Chrome extension and companion service for compressing and transcribing audio.",
+  "type": "module",
+  "scripts": {
+    "build": "npm --prefix extension run build",
+    "typecheck": "npm --prefix extension run typecheck",
+    "test": "npm --prefix companion test",
+    "start:companion": "npm --prefix companion start"
+  }
+}
