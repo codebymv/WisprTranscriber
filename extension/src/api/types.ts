@@ -33,5 +33,5 @@ export type Settings = {
 };
 
 export const DEFAULT_SETTINGS: Settings = {
-  serviceUrl: "http://127.0.0.1:8788",
+  serviceUrl: "https://wisprtranscriber.up.railway.app",
 };

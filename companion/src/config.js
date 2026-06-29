@@ -1,10 +1,11 @@
 import fs from "node:fs";
 import path from "node:path";
+import { spawnSync } from "node:child_process";
 
 export const VERSION = "0.1.0";
 export const DEFAULT_PORT = 8788;
 export const DEFAULT_MODEL = "whisper-1";
-export const DEFAULT_FFMPEG_PATH = "C:\\ffmpeg\\bin\\ffmpeg.exe";
+export const DEFAULT_FFMPEG_PATH = process.platform === "win32" ? "C:\\ffmpeg\\bin\\ffmpeg.exe" : "ffmpeg";
 export const DEFAULT_DATA_DIR = path.resolve("data");
 export const MAX_UPLOAD_BYTES = 25 * 1024 * 1024;
 export const TARGET_CHUNK_BYTES = 22 * 1024 * 1024;
@@ -39,7 +40,10 @@ export function getConfig() {
     model: process.env.OPENAI_TRANSCRIBE_MODEL || DEFAULT_MODEL,
     ffmpegPath: process.env.FFMPEG_PATH || DEFAULT_FFMPEG_PATH,
     dataDir: process.env.WISPR_DATA_DIR || DEFAULT_DATA_DIR,
-    port: Number(process.env.WISPR_PORT || DEFAULT_PORT),
+    port: Number(process.env.WISPR_PORT || process.env.PORT || DEFAULT_PORT),
+    host:
+      process.env.WISPR_HOST ||
+      (process.env.RAILWAY_PUBLIC_DOMAIN || process.env.PORT ? "0.0.0.0" : "127.0.0.1"),
     mockTranscription: process.env.WISPR_MOCK_TRANSCRIPTION === "1",
   };
 }
@@ -52,6 +56,17 @@ export function ffprobePathFor(ffmpegPath) {
 
 export function isSupportedAudioFile(fileName) {
   return SUPPORTED_EXTENSIONS.has(path.extname(fileName).toLowerCase());
+}
+
+export function executableExists(command) {
+  if (path.isAbsolute(command) || command.includes(path.sep)) {
+    return fs.existsSync(command);
+  }
+  const result = spawnSync(command, ["-version"], {
+    stdio: "ignore",
+    windowsHide: true,
+  });
+  return result.status === 0;
 }
 
 export function safeBaseName(fileName) {

@@ -5,6 +5,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import {
   VERSION,
+  executableExists,
   getConfig,
   isSupportedAudioFile,
   loadDotEnv,
@@ -56,8 +57,8 @@ const server = http.createServer(async (req, res) => {
   }
 });
 
-server.listen(config.port, "127.0.0.1", () => {
-  console.log(`Wispr companion listening on http://127.0.0.1:${config.port}`);
+server.listen(config.port, config.host, () => {
+  console.log(`Wispr companion listening on http://${config.host}:${config.port}`);
 });
 
 async function handleCreateJob(req, res) {
@@ -153,10 +154,10 @@ function handleArtifactDownload(jobId, artifactId, res) {
 
 function healthPayload() {
   return {
-    ok: Boolean(config.apiKey) && fs.existsSync(config.ffmpegPath),
+    ok: Boolean(config.apiKey) && executableExists(config.ffmpegPath),
     version: VERSION,
     hasApiKey: Boolean(config.apiKey),
-    ffmpegFound: fs.existsSync(config.ffmpegPath),
+    ffmpegFound: executableExists(config.ffmpegPath),
     ffmpegPath: config.ffmpegPath,
     model: config.model,
   };
