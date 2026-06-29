@@ -1,16 +1,43 @@
 :root {
-  --bg: #f4efe4;
-  --panel: #fffaf0;
-  --ink: #161411;
-  --muted: #6d6256;
-  --line: #ded0bb;
-  --brand: #0f766e;
-  --brand-dark: #115e59;
-  --amber: #b7791f;
-  --danger: #b42318;
-  --shadow: 0 18px 48px rgba(38, 31, 22, 0.14);
-  --radius: 18px;
-  font-family: "Aptos", "Segoe UI", sans-serif;
+  /* Wispr Transcriber — Oxide Tape Console
+     A ferric audio palette: not SaaS blue, Gleam teal, SampleSeeker gold, or MD rose. */
+  --oxide-50: #fff4ec;
+  --oxide-100: #ffe2d1;
+  --oxide-300: #e99a72;
+  --oxide-500: #b95b38;
+  --oxide-600: #94462d;
+  --oxide-700: #6f3323;
+
+  --basalt-900: #181512;
+  --basalt-800: #27211d;
+  --basalt-700: #3a3029;
+  --vellum-0: #fffaf3;
+  --vellum-100: #f5eadc;
+  --vellum-200: #ead7c3;
+  --smoke: #716356;
+  --signal: #4f8f7a;
+  --danger: #a93d35;
+
+  --color-bg: var(--basalt-900);
+  --color-surface: rgba(255, 250, 243, 0.92);
+  --color-surface-soft: rgba(255, 244, 236, 0.72);
+  --color-ink: #211a16;
+  --color-muted: var(--smoke);
+  --color-line: rgba(83, 55, 39, 0.22);
+  --color-brand: var(--oxide-500);
+  --color-brand-dark: var(--oxide-700);
+  --color-focus: rgba(185, 91, 56, 0.24);
+
+  --radius-card: 22px;
+  --radius-control: 14px;
+  --shadow-console: 0 22px 64px rgba(18, 12, 8, 0.34);
+  --shadow-oxide: 0 14px 34px rgba(185, 91, 56, 0.32);
+
+  --font-display: "Aptos Display", "Segoe UI", sans-serif;
+  --font-body: "Aptos", "Segoe UI", sans-serif;
+  --font-mono: "Cascadia Mono", "JetBrains Mono", monospace;
+
+  font-family: var(--font-body);
 }
 
 * {
@@ -20,10 +47,12 @@
 body {
   width: 430px;
   margin: 0;
+  color: var(--color-ink);
   background:
-    radial-gradient(circle at top left, rgba(15, 118, 110, 0.2), transparent 34%),
-    linear-gradient(135deg, #fbf7ed, var(--bg));
-  color: var(--ink);
+    radial-gradient(circle at 12% -12%, rgba(233, 154, 114, 0.5), transparent 36%),
+    radial-gradient(circle at 108% 14%, rgba(79, 143, 122, 0.28), transparent 30%),
+    repeating-linear-gradient(90deg, rgba(255, 250, 243, 0.035) 0 1px, transparent 1px 8px),
+    linear-gradient(145deg, #1a1512 0%, #2b1d17 52%, #161311 100%);
 }
 
 .app {
@@ -37,36 +66,56 @@ body {
 .panel,
 .dropzone,
 .status {
-  border: 1px solid rgba(92, 74, 52, 0.16);
-  border-radius: var(--radius);
-  background: rgba(255, 250, 240, 0.9);
-  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.8) inset;
+  position: relative;
+  overflow: hidden;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-card);
+  background: var(--color-surface);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.72) inset, var(--shadow-console);
+}
+
+.hero::after,
+.dropzone::after {
+  content: "";
+  position: absolute;
+  inset: auto 16px 13px auto;
+  width: 68px;
+  height: 12px;
+  border-radius: 999px;
+  background: repeating-linear-gradient(90deg, var(--oxide-500) 0 6px, transparent 6px 10px);
+  opacity: 0.18;
+  pointer-events: none;
 }
 
 .hero {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 16px;
+  gap: 12px;
+  padding: 17px;
+  background:
+    linear-gradient(135deg, rgba(255, 250, 243, 0.96), rgba(255, 226, 209, 0.78)),
+    var(--color-surface);
 }
 
 .eyebrow {
   margin: 0 0 4px;
-  color: var(--brand);
-  font-size: 11px;
-  font-weight: 800;
-  letter-spacing: 0.1em;
+  color: var(--oxide-700);
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
 }
 
 h1,
 h2 {
   margin: 0;
+  font-family: var(--font-display);
 }
 
 h1 {
-  font-size: 25px;
-  letter-spacing: -0.04em;
+  font-size: 26px;
+  letter-spacing: -0.055em;
 }
 
 h2 {
@@ -84,16 +133,17 @@ h2 {
 
 .status span {
   margin-top: 2px;
-  color: var(--muted);
+  color: var(--color-muted);
   font-size: 12px;
 }
 
 .status--ok {
-  border-color: rgba(15, 118, 110, 0.34);
+  border-color: rgba(79, 143, 122, 0.34);
+  background: linear-gradient(135deg, rgba(244, 255, 248, 0.94), rgba(255, 250, 243, 0.9));
 }
 
 .status--warn {
-  border-color: rgba(183, 121, 31, 0.42);
+  border-color: rgba(185, 91, 56, 0.42);
 }
 
 .panel {
@@ -111,31 +161,34 @@ h2 {
 
 .field span,
 .dropzone span {
-  color: var(--muted);
-  font-size: 11px;
-  font-weight: 800;
-  letter-spacing: 0.08em;
+  color: var(--oxide-700);
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
 }
 
 input {
   width: 100%;
-  border: 1px solid var(--line);
-  border-radius: 12px;
-  padding: 10px 11px;
-  background: #fffdf8;
-  color: var(--ink);
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-control);
+  padding: 11px 12px;
+  background: rgba(255, 253, 248, 0.82);
+  color: var(--color-ink);
   font: inherit;
 }
 
 input:focus {
-  outline: 3px solid rgba(15, 118, 110, 0.18);
-  border-color: var(--brand);
+  outline: 3px solid var(--color-focus);
+  border-color: var(--color-brand);
 }
 
 .dropzone {
   padding: 18px;
   border-style: dashed;
+  background:
+    linear-gradient(135deg, rgba(255, 250, 243, 0.92), rgba(245, 234, 220, 0.76)),
+    var(--color-surface-soft);
 }
 
 .dropzone label {
@@ -146,24 +199,30 @@ input:focus {
 
 .dropzone p {
   margin: 10px 0 0;
-  color: var(--muted);
+  color: var(--color-muted);
   font-size: 12px;
 }
 
 .btn {
   appearance: none;
-  border: 1px solid var(--line);
-  border-radius: 13px;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-control);
   padding: 10px 13px;
-  background: #fffdf8;
-  color: var(--ink);
+  background: rgba(255, 253, 248, 0.78);
+  color: var(--color-ink);
   cursor: pointer;
   font: inherit;
-  font-weight: 800;
+  font-weight: 900;
+  transition: transform 150ms ease, border-color 150ms ease, background 150ms ease;
 }
 
 .btn:hover:not(:disabled) {
-  border-color: var(--brand);
+  border-color: var(--color-brand);
+  transform: translateY(-1px);
+}
+
+.btn:active:not(:disabled) {
+  transform: translateY(0);
 }
 
 .btn:disabled {
@@ -172,18 +231,18 @@ input:focus {
 }
 
 .btn--ghost {
-  background: transparent;
+  background: rgba(255, 250, 243, 0.44);
 }
 
 .btn--primary {
   border-color: transparent;
-  background: var(--brand);
-  color: white;
-  box-shadow: var(--shadow);
+  background: linear-gradient(135deg, var(--oxide-500), var(--oxide-700));
+  color: var(--vellum-0);
+  box-shadow: var(--shadow-oxide);
 }
 
 .btn--primary:hover:not(:disabled) {
-  background: var(--brand-dark);
+  background: linear-gradient(135deg, var(--oxide-600), #5a281d);
 }
 
 .btn--big {
@@ -203,7 +262,7 @@ input:focus {
   display: flex;
   justify-content: space-between;
   gap: 12px;
-  border-bottom: 1px solid rgba(92, 74, 52, 0.12);
+  border-bottom: 1px solid rgba(83, 55, 39, 0.12);
   padding-bottom: 8px;
 }
 
@@ -215,7 +274,7 @@ input:focus {
 }
 
 .file-row small {
-  color: var(--muted);
+  color: var(--color-muted);
 }
 
 .progress-head {
@@ -226,34 +285,35 @@ input:focus {
 
 .progress-track {
   overflow: hidden;
-  height: 10px;
+  height: 11px;
   border-radius: 999px;
-  background: #eadcc6;
+  background: linear-gradient(90deg, #e8d4c2, #f4e7db);
+  box-shadow: inset 0 1px 2px rgba(83, 55, 39, 0.18);
 }
 
 .progress-fill {
   height: 100%;
   border-radius: inherit;
-  background: linear-gradient(90deg, var(--brand), #38bdf8);
+  background: linear-gradient(90deg, var(--oxide-700), var(--oxide-500), var(--signal));
   transition: width 180ms ease;
 }
 
 .logs code {
   display: block;
   overflow: hidden;
-  border-radius: 10px;
+  border-radius: 11px;
   padding: 7px 8px;
-  background: #efe2ce;
-  color: #4d4439;
-  font-family: "Cascadia Mono", monospace;
+  background: #2a211c;
+  color: #ffd7c2;
+  font-family: var(--font-mono);
   font-size: 11px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .alert {
-  border: 1px solid rgba(180, 35, 24, 0.24);
-  border-radius: 13px;
+  border: 1px solid rgba(169, 61, 53, 0.26);
+  border-radius: var(--radius-control);
   padding: 11px;
   background: #fff0ee;
   color: var(--danger);
@@ -262,17 +322,17 @@ input:focus {
 
 .download {
   display: block;
-  border: 1px solid rgba(15, 118, 110, 0.24);
-  border-radius: 12px;
+  border: 1px solid rgba(185, 91, 56, 0.25);
+  border-radius: var(--radius-control);
   padding: 10px 11px;
-  background: rgba(15, 118, 110, 0.08);
-  color: var(--brand-dark);
-  font-weight: 800;
+  background: rgba(185, 91, 56, 0.09);
+  color: var(--oxide-700);
+  font-weight: 900;
   text-decoration: none;
 }
 
 .download--muted {
-  border-color: rgba(109, 98, 86, 0.22);
-  background: rgba(109, 98, 86, 0.08);
-  color: #5f554a;
+  border-color: rgba(113, 99, 86, 0.22);
+  background: rgba(113, 99, 86, 0.08);
+  color: #5f4f43;
 }

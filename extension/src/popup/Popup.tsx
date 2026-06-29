@@ -1,10 +1,10 @@
 import { ChangeEvent, useEffect, useRef, useState } from "react";
 import { artifactUrl, createJob, eventsUrl, getHealth, getJob } from "../api/client";
-import { HealthPayload, JobPayload, Settings, DEFAULT_SETTINGS } from "../api/types";
-import { loadSettings, saveSettings } from "../storage/settings";
+import { DEFAULT_SETTINGS, HealthPayload, JobPayload } from "../api/types";
+
+const SERVICE_URL = DEFAULT_SETTINGS.serviceUrl;
 
 export function Popup() {
-  const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS);
   const [health, setHealth] = useState<HealthPayload | null>(null);
   const [files, setFiles] = useState<File[]>([]);
   const [jobName, setJobName] = useState("");
@@ -14,27 +14,19 @@ export function Popup() {
   const eventSourceRef = useRef<EventSource | null>(null);
 
   useEffect(() => {
-    loadSettings().then((loaded) => {
-      setSettings(loaded);
-      refreshHealth(loaded.serviceUrl);
-    });
+    refreshHealth();
     return () => eventSourceRef.current?.close();
   }, []);
 
-  async function refreshHealth(serviceUrl = settings.serviceUrl) {
+  async function refreshHealth() {
     setError(null);
     try {
-      const payload = await getHealth(serviceUrl);
+      const payload = await getHealth(SERVICE_URL);
       setHealth(payload);
     } catch (err) {
       setHealth(null);
-      setError(err instanceof Error ? err.message : "Could not reach the companion service.");
+      setError(err instanceof Error ? err.message : "Could not reach Wispr Cloud.");
     }
-  }
-
-  async function handleSaveSettings() {
-    await saveSettings(settings);
-    await refreshHealth(settings.serviceUrl);
   }
 
   function handleFiles(event: ChangeEvent<HTMLInputElement>) {
@@ -59,10 +51,10 @@ export function Popup() {
     eventSourceRef.current?.close();
 
     try {
-      const created = await createJob(settings.serviceUrl, files, jobName);
-      const initialJob = await getJob(settings.serviceUrl, created.jobId);
+      const created = await createJob(SERVICE_URL, files, jobName);
+      const initialJob = await getJob(SERVICE_URL, created.jobId);
       setJob(initialJob);
-      const source = new EventSource(eventsUrl(settings.serviceUrl, created.jobId));
+      const source = new EventSource(eventsUrl(SERVICE_URL, created.jobId));
       eventSourceRef.current = source;
       source.onmessage = (event) => {
         const payload = JSON.parse(event.data) as JobPayload;
@@ -89,7 +81,7 @@ export function Popup() {
     <main className="app">
       <header className="hero">
         <div>
-          <p className="eyebrow">Local companion transcription</p>
+          <p className="eyebrow">Hosted audio transcription</p>
           <h1>Wispr Transcriber</h1>
         </div>
         <button className="btn btn--ghost" type="button" onClick={() => refreshHealth()}>
@@ -99,28 +91,15 @@ export function Popup() {
 
       <section className={`status ${health?.ok ? "status--ok" : "status--warn"}`}>
         <div>
-          <strong>{health?.ok ? "Companion ready" : "Companion needs attention"}</strong>
+          <strong>{health?.ok ? "Wispr Cloud ready" : "Wispr Cloud needs attention"}</strong>
           <span>
             {health
-              ? `${health.model} Â· ffmpeg ${health.ffmpegFound ? "found" : "missing"} Â· key ${
+              ? `${health.model} · ffmpeg ${health.ffmpegFound ? "found" : "missing"} · key ${
                   health.hasApiKey ? "set" : "missing"
                 }`
-              : "Start the local service, then click Check."}
+              : "Checking the hosted transcription service..."}
           </span>
         </div>
-      </section>
-
-      <section className="panel">
-        <label className="field">
-          <span>Companion URL</span>
-          <input
-            value={settings.serviceUrl}
-            onChange={(event) => setSettings({ serviceUrl: event.target.value })}
-          />
-        </label>
-        <button className="btn" type="button" onClick={handleSaveSettings}>
-          Save URL
-        </button>
       </section>
 
       <section className="dropzone">
@@ -133,13 +112,13 @@ export function Popup() {
             onChange={handleFiles}
           />
         </label>
-        <p>Multiple files are sorted by filename and merged into one final transcript.</p>
+        <p>Wispr will compress, split, transcribe, and merge your files into a transcript.</p>
       </section>
 
       {files.length > 0 && (
         <section className="panel">
           <label className="field">
-            <span>Job name</span>
+            <span>Transcript name</span>
             <input value={jobName} onChange={(event) => setJobName(event.target.value)} />
           </label>
           <div className="file-list">
@@ -184,7 +163,7 @@ export function Popup() {
             {transcripts.map((artifact) => (
               <a
                 className="download"
-                href={artifactUrl(settings.serviceUrl, job.jobId, artifact.id)}
+                href={artifactUrl(SERVICE_URL, job.jobId, artifact.id)}
                 key={artifact.id}
                 target="_blank"
               >
@@ -202,7 +181,7 @@ export function Popup() {
             {audioArtifacts.map((artifact) => (
               <a
                 className="download download--muted"
-                href={artifactUrl(settings.serviceUrl, job.jobId, artifact.id)}
+                href={artifactUrl(SERVICE_URL, job.jobId, artifact.id)}
                 key={artifact.id}
                 target="_blank"
               >
