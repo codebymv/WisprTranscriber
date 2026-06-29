@@ -1,11 +1,17 @@
 {
   "manifest_version": 3,
-  "name": "Wispr Transcriber",
+  "name": "Wispr Transcribr",
   "version": "0.1.0",
-  "description": "Upload audio to a companion service for compression, splitting, transcription, and transcript downloads.",
+  "description": "Upload audio for compression, splitting, transcription, and transcript downloads.",
   "action": {
-    "default_title": "Wispr Transcriber",
+    "default_title": "Wispr Transcribr",
     "default_popup": "popup.html"
+  },
+  "icons": {
+    "16": "logo-icon.png",
+    "32": "logo-icon.png",
+    "48": "logo-icon.png",
+    "128": "logo-icon.png"
   },
   "permissions": ["storage"],
   "host_permissions": [

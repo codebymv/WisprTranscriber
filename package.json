@@ -1,5 +1,5 @@
 {
-  "name": "wispr-transcriber",
+  "name": "wispr-transcribr",
   "version": "0.1.0",
   "private": true,
   "description": "Local-first Chrome extension and companion service for compressing and transcribing audio.",

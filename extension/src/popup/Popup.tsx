@@ -11,6 +11,7 @@ export function Popup() {
   const [job, setJob] = useState<JobPayload | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [completedSignature, setCompletedSignature] = useState<string | null>(null);
   const eventSourceRef = useRef<EventSource | null>(null);
 
   useEffect(() => {
@@ -37,6 +38,7 @@ export function Popup() {
     if (selected.length > 0 && !jobName) setJobName(defaultJobName(selected[0].name));
     setJob(null);
     setError(null);
+    setCompletedSignature(null);
   }
 
   async function handleStart() {
@@ -56,10 +58,16 @@ export function Popup() {
       setJob(initialJob);
       const source = new EventSource(eventsUrl(SERVICE_URL, created.jobId));
       eventSourceRef.current = source;
+      const activeSignature = getFileSignature(files);
       source.onmessage = (event) => {
         const payload = JSON.parse(event.data) as JobPayload;
         setJob(payload);
-        if (payload.status === "done" || payload.status === "error") {
+        if (payload.status === "done") {
+          setCompletedSignature(activeSignature);
+          source.close();
+          setBusy(false);
+        }
+        if (payload.status === "error") {
           source.close();
           setBusy(false);
         }
@@ -74,33 +82,30 @@ export function Popup() {
     }
   }
 
-  const transcripts = job?.artifacts.filter((artifact) => artifact.kind === "transcript") ?? [];
-  const audioArtifacts = job?.artifacts.filter((artifact) => artifact.kind === "audio") ?? [];
+  const downloads = job?.artifacts ?? [];
+  const healthState = getHealthState(health);
+  const healthTitle = getHealthTitle(health);
+  const currentFileSignature = getFileSignature(files);
+  const transcriptionComplete = files.length > 0 && completedSignature === currentFileSignature;
+  const transcribeDisabled = busy || transcriptionComplete;
 
   return (
     <main className="app">
       <header className="hero">
-        <div>
-          <p className="eyebrow">Hosted audio transcription</p>
-          <h1>Wispr Transcriber</h1>
+        <div className="brand-lockup">
+          <img className="brand-lockup__icon" src="/logo-icon.png" alt="" />
+          <img className="brand-lockup__text" src="/logo-text.png" alt="Wispr Transcribr" />
         </div>
-        <button className="btn btn--ghost" type="button" onClick={() => refreshHealth()}>
-          Check
+        <button
+          className={`health-dot health-dot--${healthState}`}
+          type="button"
+          onClick={() => refreshHealth()}
+          title={healthTitle}
+          aria-label={healthTitle}
+        >
+          <span aria-hidden="true" />
         </button>
       </header>
-
-      <section className={`status ${health?.ok ? "status--ok" : "status--warn"}`}>
-        <div>
-          <strong>{health?.ok ? "Wispr Cloud ready" : "Wispr Cloud needs attention"}</strong>
-          <span>
-            {health
-              ? `${health.model} · ffmpeg ${health.ffmpegFound ? "found" : "missing"} · key ${
-                  health.hasApiKey ? "set" : "missing"
-                }`
-              : "Checking the hosted transcription service..."}
-          </span>
-        </div>
-      </section>
 
       <section className="dropzone">
         <label>
@@ -132,8 +137,8 @@ export function Popup() {
         </section>
       )}
 
-      <button className="btn btn--primary btn--big" type="button" onClick={handleStart} disabled={busy}>
-        {busy ? "Transcribing..." : "Transcribe"}
+      <button className="btn btn--primary btn--big" type="button" onClick={handleStart} disabled={transcribeDisabled}>
+        {busy ? "Transcribing..." : transcriptionComplete ? "Transcript ready" : "Transcribe"}
       </button>
 
       {error && <div className="alert">{error}</div>}
@@ -155,37 +160,25 @@ export function Popup() {
           </div>
         </section>
       )}
-
-      {transcripts.length > 0 && job && (
-        <section className="panel">
-          <h2>Transcript downloads</h2>
+      {downloads.length > 0 && job && (
+        <section className="panel downloads-panel">
+          <h2>Downloads</h2>
           <div className="download-list">
-            {transcripts.map((artifact) => (
+            {downloads.map((artifact) => (
               <a
-                className="download"
+                className={`download download--${artifact.kind}`}
                 href={artifactUrl(SERVICE_URL, job.jobId, artifact.id)}
                 key={artifact.id}
                 target="_blank"
+                title={`Download ${artifact.label}`}
               >
-                {artifact.label}
-              </a>
-            ))}
-          </div>
-        </section>
-      )}
-
-      {audioArtifacts.length > 0 && job && (
-        <section className="panel">
-          <h2>Compressed audio</h2>
-          <div className="download-list">
-            {audioArtifacts.map((artifact) => (
-              <a
-                className="download download--muted"
-                href={artifactUrl(SERVICE_URL, job.jobId, artifact.id)}
-                key={artifact.id}
-                target="_blank"
-              >
-                {artifact.label}
+                <span>{artifact.label}</span>
+                <span className="download__icon" aria-hidden="true">
+                  <svg viewBox="0 0 20 20" focusable="false">
+                    <path d="M10 2.5a.85.85 0 0 1 .85.85v7.18l2.43-2.43a.85.85 0 1 1 1.2 1.2l-3.88 3.88a.85.85 0 0 1-1.2 0L5.52 9.3a.85.85 0 1 1 1.2-1.2l2.43 2.43V3.35A.85.85 0 0 1 10 2.5Z" />
+                    <path d="M4.75 13.85a.85.85 0 0 1 .85.85v.95h8.8v-.95a.85.85 0 1 1 1.7 0v1.8a.85.85 0 0 1-.85.85H4.75a.85.85 0 0 1-.85-.85v-1.8a.85.85 0 0 1 .85-.85Z" />
+                  </svg>
+                </span>
               </a>
             ))}
           </div>
@@ -193,6 +186,22 @@ export function Popup() {
       )}
     </main>
   );
+}
+
+function getFileSignature(files: File[]): string {
+  return files.map((file) => `${file.name}:${file.size}:${file.lastModified}`).join("|");
+}
+
+function getHealthState(health: HealthPayload | null): "checking" | "ready" | "error" {
+  if (!health) return "checking";
+  return health.ok ? "ready" : "error";
+}
+
+function getHealthTitle(health: HealthPayload | null): string {
+  if (!health) return "Checking Wispr Cloud";
+  return `${health.ok ? "Wispr Cloud ready" : "Wispr Cloud needs attention"}: ${health.model} · ffmpeg ${
+    health.ffmpegFound ? "found" : "missing"
+  } · key ${health.hasApiKey ? "set" : "missing"}`;
 }
 
 function defaultJobName(fileName: string): string {

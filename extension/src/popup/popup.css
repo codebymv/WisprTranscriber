@@ -1,5 +1,5 @@
 :root {
-  /* Wispr Transcriber — Oxide Tape Console
+  /* Wispr Transcribr — Oxide Tape Console
      A ferric audio palette: not SaaS blue, Gleam teal, SampleSeeker gold, or MD rose. */
   --oxide-50: #fff4ec;
   --oxide-100: #ffe2d1;
@@ -54,6 +54,32 @@ body {
     repeating-linear-gradient(90deg, rgba(255, 250, 243, 0.035) 0 1px, transparent 1px 8px),
     linear-gradient(145deg, #1a1512 0%, #2b1d17 52%, #161311 100%);
 }
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--oxide-500) rgba(255, 250, 243, 0.12);
+}
+
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+*::-webkit-scrollbar-track {
+  background: rgba(255, 250, 243, 0.12);
+  border-radius: 999px;
+}
+
+*::-webkit-scrollbar-thumb {
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background: linear-gradient(180deg, var(--oxide-300), var(--oxide-600));
+  background-clip: content-box;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, var(--oxide-300), var(--oxide-700));
+  background-clip: content-box;
+}
 
 .app {
   display: flex;
@@ -74,18 +100,6 @@ body {
   box-shadow: 0 1px 0 rgba(255, 255, 255, 0.72) inset, var(--shadow-console);
 }
 
-.hero::after,
-.dropzone::after {
-  content: "";
-  position: absolute;
-  inset: auto 16px 13px auto;
-  width: 68px;
-  height: 12px;
-  border-radius: 999px;
-  background: repeating-linear-gradient(90deg, var(--oxide-500) 0 6px, transparent 6px 10px);
-  opacity: 0.18;
-  pointer-events: none;
-}
 
 .hero {
   display: flex;
@@ -96,6 +110,80 @@ body {
   background:
     linear-gradient(135deg, rgba(255, 250, 243, 0.96), rgba(255, 226, 209, 0.78)),
     var(--color-surface);
+}
+.brand-lockup {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  min-width: 0;
+}
+
+.brand-lockup__icon {
+  width: 34px;
+  height: 34px;
+  flex: none;
+  object-fit: contain;
+  filter: drop-shadow(0 8px 14px rgba(111, 51, 35, 0.18));
+}
+
+.brand-lockup__text {
+  display: block;
+  width: auto;
+  height: 25px;
+  max-width: 260px;
+  object-fit: contain;
+}
+.health-dot {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  flex: none;
+  border: 1px solid var(--color-line);
+  border-radius: 999px;
+  background: rgba(255, 250, 243, 0.52);
+  cursor: pointer;
+  transition: transform 150ms ease, border-color 150ms ease, background 150ms ease;
+}
+
+.health-dot:hover {
+  transform: translateY(-1px);
+  border-color: var(--color-brand);
+  background: rgba(255, 250, 243, 0.76);
+}
+
+.health-dot span {
+  width: 11px;
+  height: 11px;
+  border-radius: 999px;
+  box-shadow: 0 0 0 4px rgba(113, 99, 86, 0.12);
+}
+
+.health-dot--ready span {
+  background: var(--signal);
+  box-shadow: 0 0 0 4px rgba(79, 143, 122, 0.16), 0 0 18px rgba(79, 143, 122, 0.62);
+}
+
+.health-dot--error span {
+  background: var(--danger);
+  box-shadow: 0 0 0 4px rgba(169, 61, 53, 0.14), 0 0 18px rgba(169, 61, 53, 0.5);
+}
+
+.health-dot--checking span {
+  background: var(--oxide-300);
+  animation: health-pulse 1.1s ease-in-out infinite;
+}
+
+@keyframes health-pulse {
+  0%, 100% {
+    opacity: 0.45;
+    transform: scale(0.84);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1);
+  }
 }
 
 .eyebrow {
@@ -319,20 +407,59 @@ input:focus {
   color: var(--danger);
   font-size: 12px;
 }
-
 .download {
-  display: block;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
   border: 1px solid rgba(185, 91, 56, 0.25);
   border-radius: var(--radius-control);
-  padding: 10px 11px;
+  padding: 9px 9px 9px 12px;
   background: rgba(185, 91, 56, 0.09);
   color: var(--oxide-700);
   font-weight: 900;
   text-decoration: none;
+  transition: transform 150ms ease, border-color 150ms ease, background 150ms ease;
 }
 
-.download--muted {
-  border-color: rgba(113, 99, 86, 0.22);
+.download:hover {
+  transform: translateY(-1px);
+  border-color: rgba(185, 91, 56, 0.42);
+  background: rgba(185, 91, 56, 0.13);
+}
+
+.download span:first-child {
+  overflow: hidden;
+  min-width: 0;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.download--audio {
+  border-color: rgba(113, 99, 86, 0.24);
   background: rgba(113, 99, 86, 0.08);
   color: #5f4f43;
+}
+
+.download--audio:hover {
+  border-color: rgba(113, 99, 86, 0.38);
+  background: rgba(113, 99, 86, 0.12);
+}
+
+.download__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  flex: none;
+  border-radius: 10px;
+  background: rgba(255, 250, 243, 0.72);
+  color: currentColor;
+}
+
+.download__icon svg {
+  width: 17px;
+  height: 17px;
+  fill: currentColor;
 }

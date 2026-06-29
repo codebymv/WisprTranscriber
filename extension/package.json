@@ -1,8 +1,8 @@
 {
-  "name": "wispr-transcriber-extension",
+  "name": "wispr-transcribr-extension",
   "version": "0.1.0",
   "private": true,
-  "description": "Chrome extension UI for the Wispr Transcriber local companion.",
+  "description": "Chrome extension UI for the Wispr Transcribr local companion.",
   "type": "module",
   "scripts": {
     "dev": "vite build --watch --mode development",

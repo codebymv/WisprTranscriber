@@ -1,6 +1,6 @@
-# Wispr Transcriber
+# Wispr Transcribr
 
-Wispr Transcriber is a local-first transcription workbench:
+Wispr Transcribr is a local-first transcription workbench:
 
 - The Chrome extension provides the lightweight upload/status/download UI.
 - The local companion service owns `ffmpeg`, OpenAI API calls, retries, splitting, merging, and output files.
@@ -11,7 +11,7 @@ Wispr Transcriber is a local-first transcription workbench:
 1. Install extension dependencies:
 
    ```powershell
-   cd C:\Users\roxas\OneDrive\Desktop\PROJECTS\Wispr-Transcriber\extension
+   cd C:\Users\roxas\OneDrive\Desktop\PROJECTS\wispr-transcribr\extension
    npm install
    npm run build
    ```
@@ -19,7 +19,7 @@ Wispr Transcriber is a local-first transcription workbench:
 2. Configure the companion:
 
    ```powershell
-   cd C:\Users\roxas\OneDrive\Desktop\PROJECTS\Wispr-Transcriber\companion
+   cd C:\Users\roxas\OneDrive\Desktop\PROJECTS\wispr-transcribr\companion
    copy .env.example .env
    ```
 

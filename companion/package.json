@@ -1,8 +1,8 @@
 {
-  "name": "wispr-transcriber-companion",
+  "name": "wispr-transcribr-companion",
   "version": "0.1.0",
   "private": true,
-  "description": "Local companion service for Wispr Transcriber.",
+  "description": "Local companion service for Wispr Transcribr.",
   "type": "module",
   "scripts": {
     "start": "node src/server.js",
