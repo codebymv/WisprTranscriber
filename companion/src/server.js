@@ -59,6 +59,7 @@ const server = http.createServer(async (req, res) => {
 
 server.listen(config.port, config.host, () => {
   console.log(`Wispr companion listening on http://${config.host}:${config.port}`);
+  console.log(`ffmpeg command: ${config.ffmpegPath}`);
 });
 
 async function handleCreateJob(req, res) {
