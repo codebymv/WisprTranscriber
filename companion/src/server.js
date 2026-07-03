@@ -1,4 +1,4 @@
-import fs from "node:fs";
+﻿import fs from "node:fs";
 import { mkdir, writeFile } from "node:fs/promises";
 import http from "node:http";
 import path from "node:path";
@@ -135,7 +135,13 @@ function handleJobEvents(jobId, res) {
     res.write(`data: ${JSON.stringify(payload)}\n\n`);
   };
   const unsubscribe = subscribeJob(job, send);
-  res.on("close", unsubscribe);
+  const heartbeat = setInterval(() => {
+    res.write(": keep-alive\n\n");
+  }, 15000);
+  res.on("close", () => {
+    clearInterval(heartbeat);
+    unsubscribe();
+  });
 }
 
 function handleArtifactDownload(jobId, artifactId, res) {

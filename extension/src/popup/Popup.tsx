@@ -1,6 +1,7 @@
-import { ChangeEvent, useEffect, useRef, useState } from "react";
+ï»¿import { ChangeEvent, useEffect, useRef, useState } from "react";
 import { artifactUrl, createJob, eventsUrl, getHealth, getJob } from "../api/client";
 import { DEFAULT_SETTINGS, HealthPayload, JobPayload } from "../api/types";
+import { clearJobSession, loadJobSession, saveJobSession } from "../storage/jobSession";
 
 const SERVICE_URL = DEFAULT_SETTINGS.serviceUrl;
 
@@ -13,10 +14,24 @@ export function Popup() {
   const [error, setError] = useState<string | null>(null);
   const [completedSignature, setCompletedSignature] = useState<string | null>(null);
   const eventSourceRef = useRef<EventSource | null>(null);
+  const pollTimerRef = useRef<number | undefined>(undefined);
 
   useEffect(() => {
     refreshHealth();
-    return () => eventSourceRef.current?.close();
+    loadJobSession()
+      .then((session) => {
+        if (!session) return;
+        setJobName(session.jobName);
+        attachToJob(session.jobId, session.fileSignature);
+      })
+      .catch(() => {
+        /* A stale session should not block normal popup use. */
+      });
+
+    return () => {
+      eventSourceRef.current?.close();
+      window.clearInterval(pollTimerRef.current);
+    };
   }, []);
 
   async function refreshHealth() {
@@ -39,6 +54,7 @@ export function Popup() {
     setJob(null);
     setError(null);
     setCompletedSignature(null);
+    clearJobSession();
   }
 
   async function handleStart() {
@@ -51,34 +67,72 @@ export function Popup() {
     setError(null);
     setJob(null);
     eventSourceRef.current?.close();
+    window.clearInterval(pollTimerRef.current);
 
     try {
       const created = await createJob(SERVICE_URL, files, jobName);
-      const initialJob = await getJob(SERVICE_URL, created.jobId);
-      setJob(initialJob);
-      const source = new EventSource(eventsUrl(SERVICE_URL, created.jobId));
-      eventSourceRef.current = source;
       const activeSignature = getFileSignature(files);
-      source.onmessage = (event) => {
-        const payload = JSON.parse(event.data) as JobPayload;
-        setJob(payload);
-        if (payload.status === "done") {
-          setCompletedSignature(activeSignature);
-          source.close();
-          setBusy(false);
-        }
-        if (payload.status === "error") {
-          source.close();
-          setBusy(false);
-        }
-      };
-      source.onerror = () => {
-        source.close();
-        setBusy(false);
-      };
+      await saveJobSession({
+        jobId: created.jobId,
+        fileSignature: activeSignature,
+        jobName: jobName.trim(),
+      });
+      await attachToJob(created.jobId, activeSignature);
     } catch (err) {
       setBusy(false);
       setError(err instanceof Error ? err.message : "Could not start transcription.");
+    }
+  }
+
+  async function attachToJob(jobId: string, fileSignature: string) {
+    eventSourceRef.current?.close();
+    window.clearInterval(pollTimerRef.current);
+
+    const initialJob = await getJob(SERVICE_URL, jobId);
+    applyJobUpdate(initialJob, fileSignature);
+    if (isTerminalJob(initialJob)) return;
+
+    const source = new EventSource(eventsUrl(SERVICE_URL, jobId));
+    eventSourceRef.current = source;
+    source.onmessage = (event) => {
+      const payload = JSON.parse(event.data) as JobPayload;
+      applyJobUpdate(payload, fileSignature);
+    };
+    source.onerror = () => {
+      source.close();
+      eventSourceRef.current = null;
+      startPolling(jobId, fileSignature);
+    };
+
+    startPolling(jobId, fileSignature);
+  }
+
+  function startPolling(jobId: string, fileSignature: string) {
+    window.clearInterval(pollTimerRef.current);
+    pollTimerRef.current = window.setInterval(async () => {
+      try {
+        const payload = await getJob(SERVICE_URL, jobId);
+        applyJobUpdate(payload, fileSignature);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Could not refresh job status.");
+      }
+    }, 3000);
+  }
+
+  function applyJobUpdate(payload: JobPayload, fileSignature: string) {
+    setJob(payload);
+    setBusy(payload.status === "queued" || payload.status === "running");
+
+    if (payload.status === "done") {
+      setCompletedSignature(fileSignature);
+      eventSourceRef.current?.close();
+      window.clearInterval(pollTimerRef.current);
+      clearJobSession();
+    }
+
+    if (payload.status === "error") {
+      eventSourceRef.current?.close();
+      window.clearInterval(pollTimerRef.current);
     }
   }
 
@@ -160,6 +214,7 @@ export function Popup() {
           </div>
         </section>
       )}
+
       {downloads.length > 0 && job && (
         <section className="panel downloads-panel">
           <h2>Downloads</h2>
@@ -192,6 +247,10 @@ function getFileSignature(files: File[]): string {
   return files.map((file) => `${file.name}:${file.size}:${file.lastModified}`).join("|");
 }
 
+function isTerminalJob(job: JobPayload): boolean {
+  return job.status === "done" || job.status === "error";
+}
+
 function getHealthState(health: HealthPayload | null): "checking" | "ready" | "error" {
   if (!health) return "checking";
   return health.ok ? "ready" : "error";
@@ -199,9 +258,9 @@ function getHealthState(health: HealthPayload | null): "checking" | "ready" | "e
 
 function getHealthTitle(health: HealthPayload | null): string {
   if (!health) return "Checking Wispr Cloud";
-  return `${health.ok ? "Wispr Cloud ready" : "Wispr Cloud needs attention"}: ${health.model} · ffmpeg ${
+  return `${health.ok ? "Wispr Cloud ready" : "Wispr Cloud needs attention"}: ${health.model} - ffmpeg ${
     health.ffmpegFound ? "found" : "missing"
-  } · key ${health.hasApiKey ? "set" : "missing"}`;
+  } - key ${health.hasApiKey ? "set" : "missing"}`;
 }
 
 function defaultJobName(fileName: string): string {

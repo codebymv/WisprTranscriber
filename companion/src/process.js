@@ -1,4 +1,4 @@
-import fs from "node:fs";
+﻿import fs from "node:fs";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { spawn } from "node:child_process";
@@ -78,8 +78,8 @@ export async function runJob(job, uploads, config) {
       for (let chunkIndex = 0; chunkIndex < chunks.length; chunkIndex += 1) {
         const chunkPath = chunks[chunkIndex];
         updateJob(job, {
-          stage: `Transcribing file ${fileLabel}, part ${chunkIndex + 1}/${chunks.length}`,
-          progress: percent(fileIndex, totalFiles, 42 + Math.round((chunkIndex / chunks.length) * 38)),
+          stage: `Transcribing file ${fileLabel}, part ${chunkIndex + 1}/${chunks.length} with OpenAI`,
+          progress: percent(fileIndex, totalFiles, 68 + Math.round((chunkIndex / chunks.length) * 18)),
         });
 
         const text = await transcribeWithRetry(chunkPath, config, job);
