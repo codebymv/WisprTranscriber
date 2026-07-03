@@ -62,7 +62,7 @@ export async function runJob(job, uploads, config) {
         stage: `Splitting file ${fileLabel}`,
         progress: percent(fileIndex, totalFiles, 30),
       });
-      const chunks = await splitIfNeeded(compressedPath, base, jobDir, compressedSize, config);
+      const chunks = await splitIfNeeded(compressedPath, base, jobDir, compressedSize, duration, config);
       addLog(job, `Transcription chunks: ${chunks.length}`);
       for (const chunkPath of chunks) {
         if (chunkPath !== compressedPath) {
@@ -173,8 +173,10 @@ async function compressAudio(inputPath, outputPath, config) {
   ]);
 }
 
-async function splitIfNeeded(compressedPath, base, jobDir, compressedSize, config) {
-  if (compressedSize <= TARGET_CHUNK_BYTES) return [compressedPath];
+async function splitIfNeeded(compressedPath, base, jobDir, compressedSize, duration, config) {
+  if (compressedSize <= TARGET_CHUNK_BYTES && duration <= CHUNK_SECONDS) {
+    return [compressedPath];
+  }
 
   const chunkPattern = path.join(jobDir, `${base}_part-%03d.mp3`);
   await runProcess(config.ffmpegPath, [

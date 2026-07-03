@@ -15,13 +15,20 @@ export async function transcribeWithOpenAI(filePath, config) {
   form.append("response_format", "json");
   form.append("file", new Blob([audio]), path.basename(filePath));
 
-  const response = await fetch("https://api.openai.com/v1/audio/transcriptions", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${config.apiKey}`,
-    },
-    body: form,
-  });
+  let response;
+  try {
+    response = await fetch("https://api.openai.com/v1/audio/transcriptions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${config.apiKey}`,
+      },
+      body: form,
+      signal: AbortSignal.timeout(10 * 60 * 1000),
+    });
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : String(error);
+    throw new Error(`OpenAI transcription request failed before a response: ${reason}`);
+  }
 
   const body = await response.text();
   if (!response.ok) {
