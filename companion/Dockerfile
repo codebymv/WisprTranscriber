@@ -1,3 +1,5 @@
+# Build context = companion/ (Railway root directory).
+# Do not import ../../shared — that resolves to /shared outside /app.
 FROM node:20-bookworm-slim
 
 RUN apt-get update \

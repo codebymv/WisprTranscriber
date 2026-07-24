@@ -5,11 +5,12 @@ import {
   audioFileExtension,
   isSupportedAudioFileName,
   supportedAudioAcceptAttribute,
-} from "../../shared/supportedAudio.js";
+} from "../src/supportedAudio.js";
 import {
   SUPPORTED_EXTENSIONS,
   isSupportedAudioFile,
 } from "../src/config.js";
+import * as sharedSupportedAudio from "../../shared/supportedAudio.js";
 
 test("shared list covers OpenAI-supported Whisper upload formats", () => {
   assert.deepEqual([...SUPPORTED_AUDIO_EXTENSIONS], [
@@ -50,4 +51,12 @@ test("companion config re-exports the shared extension set", () => {
   for (const name of ["a.m4a", "b.mp3", "c.txt", "d", "E.WaV"]) {
     assert.equal(isSupportedAudioFile(name), isSupportedAudioFileName(name));
   }
+});
+
+test("repo shared/ re-exports the companion module (extension import path)", () => {
+  assert.equal(
+    sharedSupportedAudio.SUPPORTED_AUDIO_EXTENSIONS,
+    SUPPORTED_AUDIO_EXTENSIONS,
+  );
+  assert.equal(sharedSupportedAudio.isSupportedAudioFileName("x.m4a"), true);
 });

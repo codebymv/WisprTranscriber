@@ -4,7 +4,7 @@ import { spawnSync } from "node:child_process";
 import {
   SUPPORTED_AUDIO_EXTENSIONS,
   isSupportedAudioFileName,
-} from "../../shared/supportedAudio.js";
+} from "./supportedAudio.js";
 
 export const VERSION = "0.1.0";
 export const DEFAULT_PORT = 8788;
