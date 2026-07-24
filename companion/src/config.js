@@ -1,6 +1,10 @@
 import fs from "node:fs";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
+import {
+  SUPPORTED_AUDIO_EXTENSIONS,
+  isSupportedAudioFileName,
+} from "../../shared/supportedAudio.js";
 
 export const VERSION = "0.1.0";
 export const DEFAULT_PORT = 8788;
@@ -10,15 +14,34 @@ export const DEFAULT_DATA_DIR = path.resolve("data");
 export const MAX_UPLOAD_BYTES = 25 * 1024 * 1024;
 export const TARGET_CHUNK_BYTES = 22 * 1024 * 1024;
 export const CHUNK_SECONDS = 45 * 60;
-export const SUPPORTED_EXTENSIONS = new Set([
-  ".mp3",
-  ".mp4",
-  ".mpeg",
-  ".mpga",
-  ".m4a",
-  ".wav",
-  ".webm",
-]);
+/** Matches companion compressAudio bitrate (20 kbps mono). */
+export const COMPRESS_BITRATE_BYTES_PER_SEC = 20_000 / 8;
+export const MIN_CHUNK_SECONDS = 60;
+export const SUPPORTED_EXTENSIONS = new Set(SUPPORTED_AUDIO_EXTENSIONS);
+
+/**
+ * Choose ffmpeg segment length so chunks stay near TARGET_CHUNK_BYTES
+ * while never exceeding CHUNK_SECONDS.
+ * Returns null when no split is required.
+ */
+export function computeChunkSegmentSeconds(compressedSize, durationSeconds) {
+  const sizeOk = compressedSize <= TARGET_CHUNK_BYTES;
+  const durationOk = !Number.isFinite(durationSeconds) || durationSeconds <= 0 || durationSeconds <= CHUNK_SECONDS;
+  if (sizeOk && durationOk) return null;
+
+  let segmentSeconds = CHUNK_SECONDS;
+
+  if (compressedSize > TARGET_CHUNK_BYTES) {
+    if (Number.isFinite(durationSeconds) && durationSeconds > 0) {
+      const parts = Math.max(2, Math.ceil(compressedSize / TARGET_CHUNK_BYTES));
+      segmentSeconds = Math.floor(durationSeconds / parts);
+    } else {
+      segmentSeconds = Math.floor(TARGET_CHUNK_BYTES / COMPRESS_BITRATE_BYTES_PER_SEC);
+    }
+  }
+
+  return Math.min(CHUNK_SECONDS, Math.max(MIN_CHUNK_SECONDS, segmentSeconds));
+}
 
 export function loadDotEnv(filePath = path.resolve(".env")) {
   if (!fs.existsSync(filePath)) return;
@@ -55,7 +78,7 @@ export function ffprobePathFor(ffmpegPath) {
 }
 
 export function isSupportedAudioFile(fileName) {
-  return SUPPORTED_EXTENSIONS.has(path.extname(fileName).toLowerCase());
+  return isSupportedAudioFileName(fileName);
 }
 
 export function executableExists(command) {

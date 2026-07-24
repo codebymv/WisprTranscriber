@@ -7,17 +7,26 @@ import {
   VERSION,
   executableExists,
   getConfig,
-  isSupportedAudioFile,
   loadDotEnv,
   safeBaseName,
 } from "./config.js";
-import { addLog, createJob, getJob, serializeJob, subscribeJob } from "./jobs.js";
+import {
+  addLog,
+  cancelAndCleanupJob,
+  createJob,
+  getJob,
+  serializeJob,
+  setJobsDataDir,
+  subscribeJob,
+} from "./jobs.js";
 import { runJob } from "./process.js";
+import { validateUploadFiles } from "./uploadValidation.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 loadDotEnv(path.resolve(__dirname, "..", ".env"));
 
 const config = getConfig();
+setJobsDataDir(config.dataDir);
 await mkdir(config.dataDir, { recursive: true });
 
 const server = http.createServer(async (req, res) => {
@@ -39,6 +48,9 @@ const server = http.createServer(async (req, res) => {
       const job = getJob(jobMatch[1]);
       if (!job) return sendJson(res, 404, { error: "Job not found." });
       return sendJson(res, 200, serializeJob(job));
+    }
+    if (req.method === "DELETE" && jobMatch) {
+      return handleDeleteJob(jobMatch[1], res);
     }
 
     const eventsMatch = url.pathname.match(/^\/jobs\/([^/]+)\/events$/);
@@ -72,33 +84,28 @@ async function handleCreateJob(req, res) {
     return sendJson(res, 400, { error: "Upload at least one audio file." });
   }
 
-  const job = createJob(jobName || safeBaseName(files[0].name || "wispr-job"));
+  // Validate before createJob so bad uploads never leave orphaned queued jobs.
+  const validated = await validateUploadFiles(files);
+  if (!validated.ok) {
+    return sendJson(res, 400, { error: validated.error });
+  }
+
+  const job = createJob(
+    jobName || safeBaseName(validated.uploads[0].originalName || "wispr-job"),
+  );
   const uploadDir = path.join(config.dataDir, "jobs", job.jobId, "uploads");
   await mkdir(uploadDir, { recursive: true });
 
   const uploads = [];
-  for (const file of files) {
-    if (!file || typeof file.arrayBuffer !== "function") continue;
-    const originalName = file.name || "audio";
-    if (!isSupportedAudioFile(originalName)) {
-      return sendJson(res, 400, { error: `Unsupported audio extension: ${originalName}` });
-    }
-    const bytes = Buffer.from(await file.arrayBuffer());
-    if (bytes.length === 0) {
-      return sendJson(res, 400, { error: `${originalName} is empty.` });
-    }
-    const safeName = `${uploads.length + 1}-${safeBaseName(originalName)}${path.extname(originalName)}`;
+  for (const file of validated.uploads) {
+    const safeName = `${uploads.length + 1}-${safeBaseName(file.originalName)}${path.extname(file.originalName)}`;
     const uploadPath = path.join(uploadDir, safeName);
-    await writeFile(uploadPath, bytes);
+    await writeFile(uploadPath, file.bytes);
     uploads.push({
-      originalName,
+      originalName: file.originalName,
       path: uploadPath,
-      size: bytes.length,
+      size: file.bytes.length,
     });
-  }
-
-  if (uploads.length === 0) {
-    return sendJson(res, 400, { error: "No valid audio files were uploaded." });
   }
 
   addLog(job, `Queued ${uploads.length} file(s).`);
@@ -118,6 +125,20 @@ async function parseMultipartForm(req) {
     body,
   });
   return request.formData();
+}
+
+function handleDeleteJob(jobId, res) {
+  const existing = getJob(jobId);
+  if (!existing) return sendJson(res, 404, { error: "Job not found." });
+
+  const snapshot = serializeJob(existing);
+  cancelAndCleanupJob(jobId);
+  return sendJson(res, 200, {
+    ok: true,
+    jobId,
+    cancelled: snapshot.status === "queued" || snapshot.status === "running",
+    cleanedUp: true,
+  });
 }
 
 function handleJobEvents(jobId, res) {
@@ -180,7 +201,7 @@ function handleCors(req, res) {
 function corsHeaders() {
   return {
     "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
+    "Access-Control-Allow-Methods": "GET,POST,DELETE,OPTIONS",
     "Access-Control-Allow-Headers": "Content-Type",
   };
 }

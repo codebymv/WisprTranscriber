@@ -26,6 +26,17 @@ export async function getJob(serviceUrl: string, jobId: string): Promise<JobPayl
   return parseJson(response);
 }
 
+/** Cancel in-flight work (if any) and delete the job directory on the companion. */
+export async function cancelAndCleanupJob(
+  serviceUrl: string,
+  jobId: string,
+): Promise<{ ok: boolean; jobId: string; cancelled: boolean; cleanedUp: boolean }> {
+  const response = await fetch(`${trimUrl(serviceUrl)}/jobs/${jobId}`, {
+    method: "DELETE",
+  });
+  return parseJson(response);
+}
+
 export function artifactUrl(serviceUrl: string, jobId: string, artifactId: string): string {
   return `${trimUrl(serviceUrl)}/jobs/${jobId}/artifacts/${artifactId}`;
 }

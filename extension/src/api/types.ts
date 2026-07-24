@@ -17,7 +17,7 @@ export type JobArtifact = {
 export type JobPayload = {
   jobId: string;
   jobName: string;
-  status: "queued" | "running" | "done" | "error";
+  status: "queued" | "running" | "done" | "error" | "cancelled";
   stage: string;
   progress: number;
   files: Array<{ name: string; size: number }>;

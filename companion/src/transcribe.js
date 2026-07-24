@@ -1,7 +1,7 @@
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 
-export async function transcribeWithOpenAI(filePath, config) {
+export async function transcribeWithOpenAI(filePath, config, options = {}) {
   if (config.mockTranscription) {
     return `Mock transcript for ${path.basename(filePath)}.`;
   }
@@ -15,6 +15,11 @@ export async function transcribeWithOpenAI(filePath, config) {
   form.append("response_format", "json");
   form.append("file", new Blob([audio]), path.basename(filePath));
 
+  const timeoutSignal = AbortSignal.timeout(10 * 60 * 1000);
+  const signal = options.signal
+    ? AbortSignal.any([timeoutSignal, options.signal])
+    : timeoutSignal;
+
   let response;
   try {
     response = await fetch("https://api.openai.com/v1/audio/transcriptions", {
@@ -23,9 +28,12 @@ export async function transcribeWithOpenAI(filePath, config) {
         Authorization: `Bearer ${config.apiKey}`,
       },
       body: form,
-      signal: AbortSignal.timeout(10 * 60 * 1000),
+      signal,
     });
   } catch (error) {
+    if (options.signal?.aborted) {
+      throw error;
+    }
     const reason = error instanceof Error ? error.message : String(error);
     throw new Error(`OpenAI transcription request failed before a response: ${reason}`);
   }

@@ -4,6 +4,11 @@ import { resolve } from "node:path";
 
 export default defineConfig({
   plugins: [react()],
+  server: {
+    fs: {
+      allow: [resolve(__dirname, "..")],
+    },
+  },
   build: {
     outDir: "dist",
     emptyOutDir: true,

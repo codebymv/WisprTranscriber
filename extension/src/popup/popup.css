@@ -1,5 +1,5 @@
-:root {
-  /* Wispr Transcribr � Oxide Tape Console
+﻿:root {
+  /* Wispr Transcribr — Oxide Tape Console
      A ferric audio palette: not SaaS blue, Gleam teal, SampleSeeker gold, or MD rose. */
   --oxide-50: #fff4ec;
   --oxide-100: #ffe2d1;
@@ -186,6 +186,97 @@ body {
   }
 }
 
+.companion-status {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin: -4px 2px 0;
+  padding: 0 4px;
+  color: var(--color-muted);
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.companion-status p {
+  margin: 0;
+  min-width: 0;
+}
+
+.companion-status--degraded,
+.companion-status--unreachable {
+  color: var(--danger);
+}
+
+.companion-status__retry {
+  appearance: none;
+  flex: none;
+  margin: 0;
+  padding: 4px 10px;
+  border: 1px solid rgba(169, 61, 53, 0.35);
+  border-radius: var(--radius-control);
+  background: rgba(169, 61, 53, 0.08);
+  color: var(--danger);
+  font: inherit;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+}
+
+.companion-status__retry:hover:not(:disabled) {
+  border-color: var(--danger);
+  background: rgba(169, 61, 53, 0.16);
+}
+
+.companion-status__retry:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.toast {
+  margin: -6px 2px 0;
+  padding: 8px 10px;
+  border: 1px solid rgba(79, 143, 122, 0.28);
+  border-radius: var(--radius-control);
+  background: rgba(79, 143, 122, 0.12);
+  color: var(--signal);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  line-height: 1.35;
+  animation: toast-in 180ms ease-out;
+}
+
+.toast--ok {
+  border-color: rgba(79, 143, 122, 0.28);
+  background: rgba(79, 143, 122, 0.12);
+  color: var(--signal);
+}
+
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.link-status {
+  margin: 0 0 8px;
+  color: var(--signal);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.link-status--pending {
+  color: var(--oxide-600);
+}
+
 .eyebrow {
   margin: 0 0 4px;
   color: var(--oxide-700);
@@ -271,6 +362,27 @@ input:focus {
   border-color: var(--color-brand);
 }
 
+select {
+  width: 100%;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-control);
+  padding: 11px 12px;
+  background: rgba(255, 253, 248, 0.82);
+  color: var(--color-ink);
+  font: inherit;
+  cursor: pointer;
+}
+
+select:focus {
+  outline: 3px solid var(--color-focus);
+  border-color: var(--color-brand);
+}
+
+.recent-panel {
+  padding-top: 12px;
+  padding-bottom: 12px;
+}
+
 .dropzone {
   padding: 18px;
   border-style: dashed;
@@ -336,6 +448,75 @@ input:focus {
 .btn--big {
   padding: 14px;
   font-size: 15px;
+}
+
+.action-row {
+  display: grid;
+  gap: 10px;
+}
+
+.action-row:has(.btn--danger) {
+  grid-template-columns: 1fr auto;
+  align-items: stretch;
+}
+
+.btn--danger {
+  border-color: rgba(169, 61, 53, 0.45);
+  background: rgba(169, 61, 53, 0.12);
+  color: var(--danger);
+  padding-inline: 16px;
+  font-weight: 800;
+}
+
+.btn--danger:hover:not(:disabled) {
+  border-color: var(--danger);
+  background: rgba(169, 61, 53, 0.2);
+}
+.btn--loading {
+  position: relative;
+  overflow: hidden;
+}
+
+.btn--loading::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    110deg,
+    transparent 0%,
+    rgba(255, 250, 243, 0.08) 34%,
+    rgba(255, 250, 243, 0.34) 48%,
+    rgba(255, 250, 243, 0.08) 62%,
+    transparent 100%
+  );
+  transform: translateX(-120%);
+  animation: button-sheen 1.25s ease-in-out infinite;
+}
+
+.btn--loading > span {
+  position: relative;
+  z-index: 1;
+}
+
+.btn__spinner {
+  width: 15px;
+  height: 15px;
+  border: 2px solid rgba(255, 250, 243, 0.32);
+  border-top-color: var(--vellum-0);
+  border-radius: 999px;
+  animation: button-spin 0.85s linear infinite;
+}
+
+@keyframes button-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes button-sheen {
+  to {
+    transform: translateX(120%);
+  }
 }
 
 .file-list,
@@ -426,6 +607,19 @@ input:focus {
   transform: translateY(-1px);
   border-color: rgba(185, 91, 56, 0.42);
   background: rgba(185, 91, 56, 0.13);
+}
+
+.download--hero {
+  border-color: rgba(185, 91, 56, 0.38);
+  border-left: 3px solid var(--oxide-500);
+  background: linear-gradient(135deg, rgba(255, 244, 236, 0.95), rgba(185, 91, 56, 0.12));
+  color: var(--oxide-700);
+  font-weight: 900;
+}
+
+.download--hero:hover {
+  border-color: rgba(185, 91, 56, 0.52);
+  background: linear-gradient(135deg, rgba(255, 244, 236, 1), rgba(185, 91, 56, 0.16));
 }
 
 .download span:first-child {

@@ -3,16 +3,24 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { spawn } from "node:child_process";
 import {
-  CHUNK_SECONDS,
   TARGET_CHUNK_BYTES,
+  computeChunkSegmentSeconds,
   ffprobePathFor,
   safeBaseName,
 } from "./config.js";
-import { addArtifact, addLog, updateJob } from "./jobs.js";
+import {
+  JobCancelledError,
+  addArtifact,
+  addLog,
+  getJobSignal,
+  throwIfCancelled,
+  updateJob,
+} from "./jobs.js";
 import { transcribeWithOpenAI } from "./transcribe.js";
 
 export async function runJob(job, uploads, config) {
   try {
+    throwIfCancelled(job);
     updateJob(job, {
       status: "running",
       stage: "Preparing workspace",
@@ -28,8 +36,10 @@ export async function runJob(job, uploads, config) {
 
     const partTranscripts = [];
     const totalFiles = uploads.length;
+    const signal = getJobSignal(job);
 
     for (let fileIndex = 0; fileIndex < uploads.length; fileIndex += 1) {
+      throwIfCancelled(job);
       const upload = uploads[fileIndex];
       const base = safeBaseName(upload.originalName);
       const fileLabel = `${fileIndex + 1}/${totalFiles}`;
@@ -39,15 +49,16 @@ export async function runJob(job, uploads, config) {
         stage: `Probing file ${fileLabel}`,
         progress: percent(fileIndex, totalFiles, 8),
       });
-      const duration = await probeDuration(upload.path, config);
+      const duration = await probeDuration(upload.path, config, signal);
       addLog(job, `Duration: ${formatDuration(duration)}`);
 
+      throwIfCancelled(job);
       updateJob(job, {
         stage: `Compressing file ${fileLabel}`,
         progress: percent(fileIndex, totalFiles, 18),
       });
       const compressedPath = path.join(jobDir, `${base}_compressed.mp3`);
-      await compressAudio(upload.path, compressedPath, config);
+      await compressAudio(upload.path, compressedPath, config, signal);
       addArtifact(job, {
         kind: "audio",
         label: `${base}_compressed.mp3`,
@@ -58,11 +69,21 @@ export async function runJob(job, uploads, config) {
       const compressedSize = fs.statSync(compressedPath).size;
       addLog(job, `Compressed size: ${formatBytes(compressedSize)}`);
 
+      throwIfCancelled(job);
       updateJob(job, {
         stage: `Splitting file ${fileLabel}`,
         progress: percent(fileIndex, totalFiles, 30),
       });
-      const chunks = await splitIfNeeded(compressedPath, base, jobDir, compressedSize, duration, config);
+      const chunks = await splitIfNeeded(
+        compressedPath,
+        base,
+        jobDir,
+        compressedSize,
+        duration,
+        config,
+        job,
+        signal,
+      );
       addLog(job, `Transcription chunks: ${chunks.length}`);
       for (const chunkPath of chunks) {
         if (chunkPath !== compressedPath) {
@@ -76,13 +97,14 @@ export async function runJob(job, uploads, config) {
       }
 
       for (let chunkIndex = 0; chunkIndex < chunks.length; chunkIndex += 1) {
+        throwIfCancelled(job);
         const chunkPath = chunks[chunkIndex];
         updateJob(job, {
           stage: `Transcribing file ${fileLabel}, part ${chunkIndex + 1}/${chunks.length} with OpenAI`,
           progress: percent(fileIndex, totalFiles, 68 + Math.round((chunkIndex / chunks.length) * 18)),
         });
 
-        const text = await transcribeWithRetry(chunkPath, config, job);
+        const text = await transcribeWithRetry(chunkPath, config, job, signal);
         const transcriptName =
           chunks.length === 1 ? `${base}_compressed.txt` : `${base}_part-${chunkIndex + 1}.txt`;
         const transcriptPath = path.join(jobDir, transcriptName);
@@ -101,6 +123,7 @@ export async function runJob(job, uploads, config) {
       }
     }
 
+    throwIfCancelled(job);
     updateJob(job, {
       stage: "Merging transcript",
       progress: 92,
@@ -133,6 +156,17 @@ export async function runJob(job, uploads, config) {
     });
     addLog(job, "Job complete");
   } catch (error) {
+    if (isCancellation(error, job)) {
+      if (job.status !== "cancelled" && !job.cleanedUp) {
+        updateJob(job, {
+          status: "cancelled",
+          stage: "Cancelled",
+          error: "Cancelled by user.",
+        });
+        addLog(job, "Job cancelled.");
+      }
+      return;
+    }
     updateJob(job, {
       status: "error",
       stage: "Failed",
@@ -142,77 +176,123 @@ export async function runJob(job, uploads, config) {
   }
 }
 
-async function probeDuration(inputPath, config) {
+async function probeDuration(inputPath, config, signal) {
   const ffprobePath = ffprobePathFor(config.ffmpegPath);
-  const output = await runProcess(ffprobePath, [
-    "-v",
-    "error",
-    "-show_entries",
-    "format=duration",
-    "-of",
-    "default=noprint_wrappers=1:nokey=1",
-    inputPath,
-  ]);
+  const output = await runProcess(
+    ffprobePath,
+    [
+      "-v",
+      "error",
+      "-show_entries",
+      "format=duration",
+      "-of",
+      "default=noprint_wrappers=1:nokey=1",
+      inputPath,
+    ],
+    signal,
+  );
   const duration = Number(output.trim());
   return Number.isFinite(duration) ? duration : 0;
 }
 
-async function compressAudio(inputPath, outputPath, config) {
-  await runProcess(config.ffmpegPath, [
-    "-y",
-    "-i",
-    inputPath,
-    "-vn",
-    "-ac",
-    "1",
-    "-b:a",
-    "20k",
-    "-ar",
-    "16000",
-    outputPath,
-  ]);
+async function compressAudio(inputPath, outputPath, config, signal) {
+  await runProcess(
+    config.ffmpegPath,
+    ["-y", "-i", inputPath, "-vn", "-ac", "1", "-b:a", "20k", "-ar", "16000", outputPath],
+    signal,
+  );
 }
 
-async function splitIfNeeded(compressedPath, base, jobDir, compressedSize, duration, config) {
-  if (compressedSize <= TARGET_CHUNK_BYTES && duration <= CHUNK_SECONDS) {
+async function splitIfNeeded(
+  compressedPath,
+  base,
+  jobDir,
+  compressedSize,
+  duration,
+  config,
+  job,
+  signal,
+) {
+  const segmentSeconds = computeChunkSegmentSeconds(compressedSize, duration);
+  if (segmentSeconds == null) {
     return [compressedPath];
   }
 
-  const chunkPattern = path.join(jobDir, `${base}_part-%03d.mp3`);
-  await runProcess(config.ffmpegPath, [
-    "-y",
-    "-i",
-    compressedPath,
-    "-c",
-    "copy",
-    "-f",
-    "segment",
-    "-segment_time",
-    String(CHUNK_SECONDS),
-    "-reset_timestamps",
-    "1",
-    chunkPattern,
-  ]);
+  addLog(job, `Splitting into ~${Math.round(segmentSeconds / 60)} minute chunks`);
+  let chunkFiles = await segmentAudio(compressedPath, base, jobDir, segmentSeconds, config, {
+    copyCodec: true,
+    signal,
+  });
 
-  const chunkFiles = fs
-    .readdirSync(jobDir)
-    .filter((file) => file.startsWith(`${base}_part-`) && file.endsWith(".mp3"))
-    .sort()
-    .map((file) => path.join(jobDir, file));
+  // Stream-copy splits can leave a chunk still over the API size limit; re-encode shorter.
+  const oversized = chunkFiles.filter((file) => fs.statSync(file).size > TARGET_CHUNK_BYTES);
+  if (oversized.length > 0) {
+    const shorter = Math.max(60, Math.floor(segmentSeconds / 2));
+    addLog(
+      job,
+      `${oversized.length} chunk(s) still over size limit; re-encoding at ~${Math.round(shorter / 60)} minute segments`,
+    );
+    chunkFiles = await segmentAudio(compressedPath, base, jobDir, shorter, config, {
+      copyCodec: false,
+      signal,
+    });
+  }
 
   return chunkFiles.length > 0 ? chunkFiles : [compressedPath];
 }
 
-async function transcribeWithRetry(filePath, config, job) {
+async function segmentAudio(inputPath, base, jobDir, segmentSeconds, config, { copyCodec, signal }) {
+  const partPrefix = `${base}_part-`;
+  for (const file of fs.readdirSync(jobDir)) {
+    if (file.startsWith(partPrefix) && file.endsWith(".mp3")) {
+      fs.unlinkSync(path.join(jobDir, file));
+    }
+  }
+
+  const chunkPattern = path.join(jobDir, `${partPrefix}%03d.mp3`);
+  const args = ["-y", "-i", inputPath];
+  if (copyCodec) {
+    args.push("-c", "copy");
+  } else {
+    args.push("-vn", "-ac", "1", "-b:a", "20k", "-ar", "16000");
+  }
+  args.push(
+    "-f",
+    "segment",
+    "-segment_time",
+    String(segmentSeconds),
+    "-reset_timestamps",
+    "1",
+    chunkPattern,
+  );
+  await runProcess(config.ffmpegPath, args, signal);
+
+  return fs
+    .readdirSync(jobDir)
+    .filter((file) => /^.*_part-\d{3}\.mp3$/i.test(file) && file.startsWith(partPrefix))
+    .sort()
+    .map((file) => path.join(jobDir, file))
+    .filter((filePath) => {
+      try {
+        return fs.statSync(filePath).size >= 1024;
+      } catch {
+        return false;
+      }
+    });
+}
+
+async function transcribeWithRetry(filePath, config, job, signal) {
   let lastError;
   for (let attempt = 1; attempt <= 3; attempt += 1) {
+    throwIfCancelled(job);
     try {
       addLog(job, `Transcribing ${path.basename(filePath)} (attempt ${attempt}/3)`);
-      return await transcribeWithOpenAI(filePath, config);
+      return await transcribeWithOpenAI(filePath, config, { signal });
     } catch (error) {
+      if (isCancellation(error, job)) throw error;
       lastError = error;
       addLog(job, `Attempt ${attempt} failed: ${error.message}`);
-      if (attempt < 3) await delay(attempt * 1500);
+      if (attempt < 3) await delay(attempt * 1500, signal);
     }
   }
   throw lastError;
@@ -233,30 +313,87 @@ function percent(fileIndex, totalFiles, innerPercent) {
   return Math.min(96, Math.round(6 + fileIndex * perFile + (innerPercent / 100) * perFile));
 }
 
-function runProcess(command, args) {
+/** Exported for cancel/abort unit tests. */
+export function runProcess(command, args, signal) {
   return new Promise((resolve, reject) => {
+    if (signal?.aborted) {
+      reject(new JobCancelledError());
+      return;
+    }
+
     const child = spawn(command, args, { windowsHide: true });
     let stdout = "";
     let stderr = "";
+    let settled = false;
+
+    const settle = (fn) => {
+      if (settled) return;
+      settled = true;
+      signal?.removeEventListener("abort", onAbort);
+      fn();
+    };
+
+    const onAbort = () => {
+      try {
+        child.kill();
+      } catch {
+        /* Process may already be gone. */
+      }
+      settle(() => reject(new JobCancelledError()));
+    };
+
+    signal?.addEventListener("abort", onAbort, { once: true });
+    if (signal?.aborted) {
+      onAbort();
+      return;
+    }
+
     child.stdout.on("data", (chunk) => {
       stdout += chunk;
     });
     child.stderr.on("data", (chunk) => {
       stderr += chunk;
     });
-    child.on("error", reject);
+    child.on("error", (error) => settle(() => reject(error)));
     child.on("close", (code) => {
-      if (code === 0) {
-        resolve(stdout);
+      if (signal?.aborted) {
+        settle(() => reject(new JobCancelledError()));
         return;
       }
-      reject(new Error(`${path.basename(command)} exited with code ${code}: ${stderr || stdout}`));
+      if (code === 0) {
+        settle(() => resolve(stdout));
+        return;
+      }
+      settle(() =>
+        reject(new Error(`${path.basename(command)} exited with code ${code}: ${stderr || stdout}`)),
+      );
     });
   });
 }
 
-function delay(ms) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
+function delay(ms, signal) {
+  return new Promise((resolve, reject) => {
+    if (signal?.aborted) {
+      reject(new JobCancelledError());
+      return;
+    }
+    const timer = setTimeout(resolve, ms);
+    const onAbort = () => {
+      clearTimeout(timer);
+      reject(new JobCancelledError());
+    };
+    signal?.addEventListener("abort", onAbort, { once: true });
+  });
+}
+
+function isCancellation(error, job) {
+  return (
+    error instanceof JobCancelledError ||
+    job.status === "cancelled" ||
+    job.cleanedUp ||
+    Boolean(job.cancelController?.signal.aborted) ||
+    (error instanceof Error && /aborted|cancelled/i.test(error.message))
+  );
 }
 
 function formatDuration(seconds) {

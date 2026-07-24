@@ -8,10 +8,12 @@ Wispr Transcribr is a local-first transcription workbench:
 
 ## Quick Start
 
+From this folder (`zEXTENSIONS/Wispr-Transcriber`):
+
 1. Install extension dependencies:
 
    ```powershell
-   cd C:\Users\roxas\OneDrive\Desktop\PROJECTS\wispr-transcribr\extension
+   cd extension
    npm install
    npm run build
    ```
@@ -19,7 +21,7 @@ Wispr Transcribr is a local-first transcription workbench:
 2. Configure the companion:
 
    ```powershell
-   cd C:\Users\roxas\OneDrive\Desktop\PROJECTS\wispr-transcribr\companion
+   cd ..\companion
    copy .env.example .env
    ```
 
@@ -37,6 +39,6 @@ Wispr Transcribr is a local-first transcription workbench:
 
 - Default model is `whisper-1` to match the existing manual workflow.
 - Default compression is mono MP3, `16000 Hz`, `20 kbps`.
-- Long compressed files are split into about 45 minute chunks before transcription.
+- Long compressed files are split into chunks (about 45 minutes, or shorter when needed to stay under the OpenAI upload size limit) before transcription.
 - API usage uses OpenAI Platform billing/usage for the API key in `.env`.
 - Output artifacts default to `companion\data` unless `WISPR_DATA_DIR` is set.
