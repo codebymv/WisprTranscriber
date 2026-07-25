@@ -27,10 +27,14 @@ import {
 } from "../audio/supportedAudio";
 import { clearJobSession, loadJobSession, saveJobSession } from "../storage/jobSession";
 import { loadRecentJobs, RecentJob, removeRecentJob, upsertRecentJob } from "../storage/recentJobs";
-
-const SERVICE_URL = DEFAULT_SETTINGS.serviceUrl;
+import { normalizeServiceUrl } from "../api/serviceUrl.js";
+import { loadSettings, saveSettings } from "../storage/settings";
 
 export function Popup() {
+  const [serviceUrl, setServiceUrl] = useState(DEFAULT_SETTINGS.serviceUrl);
+  const [serviceUrlDraft, setServiceUrlDraft] = useState(DEFAULT_SETTINGS.serviceUrl);
+  const [settingsSaving, setSettingsSaving] = useState(false);
+  const [settingsReady, setSettingsReady] = useState(false);
   const [health, setHealth] = useState<HealthPayload | null>(null);
   const [healthReachError, setHealthReachError] = useState<string | null>(null);
   const [healthRefreshing, setHealthRefreshing] = useState(false);
@@ -47,6 +51,8 @@ export function Popup() {
   const [cancelling, setCancelling] = useState(false);
   const [retryToast, setRetryToast] = useState<string | null>(null);
   const watcherRef = useRef<JobEventWatcher | null>(null);
+  /** Always-current companion base URL for async handlers. */
+  const serviceUrlRef = useRef(DEFAULT_SETTINGS.serviceUrl);
   /** Bumped on stop/cancel so in-flight attach/poll work cannot resurrect UI. */
   const watchGenerationRef = useRef(0);
   /** Wall clock when companion first became unreachable (for long-outage toast). */
@@ -54,11 +60,27 @@ export function Popup() {
   const retryToastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
-    refreshHealth();
+    serviceUrlRef.current = serviceUrl;
+  }, [serviceUrl]);
 
-    // Load recents before session resume so a missing-job cleanup cannot race
-    // with the initial recent-list write and resurrect a dropped entry.
+  useEffect(() => {
+    // Load settings first so health / session resume hit the configured companion.
     void (async () => {
+      try {
+        const settings = await loadSettings();
+        serviceUrlRef.current = settings.serviceUrl;
+        setServiceUrl(settings.serviceUrl);
+        setServiceUrlDraft(settings.serviceUrl);
+      } catch {
+        /* Keep defaults if storage fails. */
+      } finally {
+        setSettingsReady(true);
+      }
+
+      await refreshHealth();
+
+      // Load recents before session resume so a missing-job cleanup cannot race
+      // with the initial recent-list write and resurrect a dropped entry.
       try {
         setRecentJobs(await loadRecentJobs());
       } catch {
@@ -116,12 +138,29 @@ export function Popup() {
     }, 3200);
   }
 
+  async function handleSaveServiceUrl() {
+    setSettingsSaving(true);
+    setError(null);
+    try {
+      const saved = await saveSettings({ serviceUrl: serviceUrlDraft });
+      serviceUrlRef.current = saved.serviceUrl;
+      setServiceUrl(saved.serviceUrl);
+      setServiceUrlDraft(saved.serviceUrl);
+      showRetryToast("Companion URL saved.");
+      await refreshHealth();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not save companion URL.");
+    } finally {
+      setSettingsSaving(false);
+    }
+  }
+
   async function refreshHealth() {
     const wasUnreachable = unreachableSinceRef.current != null || healthReachError != null;
     const unreachableSinceMs = unreachableSinceRef.current;
     setHealthRefreshing(true);
     try {
-      const payload = await getHealth(SERVICE_URL);
+      const payload = await getHealth(serviceUrlRef.current);
       setHealth(payload);
       setHealthReachError(null);
       unreachableSinceRef.current = null;
@@ -166,7 +205,7 @@ export function Popup() {
     stopWatching();
 
     try {
-      await cancelAndCleanupJob(SERVICE_URL, jobId);
+      await cancelAndCleanupJob(serviceUrlRef.current, jobId);
       await clearJobSession();
       const next = await removeRecentJob(jobId);
       setRecentJobs(next);
@@ -180,7 +219,7 @@ export function Popup() {
       setError(cancelMessage);
 
       // Cancel request failed — probe whether the job is still alive server-side.
-      const probe = await probeJobAfterFailedCancel(() => getJob(SERVICE_URL, jobId));
+      const probe = await probeJobAfterFailedCancel(() => getJob(serviceUrlRef.current, jobId));
       const recovery = resolveFailedCancelRecovery(probe);
 
       if (recovery === "reattach") {
@@ -223,7 +262,7 @@ export function Popup() {
     stopWatching();
 
     try {
-      const created = await createJob(SERVICE_URL, files, jobName);
+      const created = await createJob(serviceUrlRef.current, files, jobName);
       const activeSignature = getFileSignature(files);
       const name = jobName.trim() || defaultJobName(files[0].name);
       await saveJobSession({
@@ -265,7 +304,7 @@ export function Popup() {
     stopWatching();
 
     try {
-      const payload = await getJob(SERVICE_URL, jobId);
+      const payload = await getJob(serviceUrlRef.current, jobId);
       setJobName(payload.jobName);
       setSelectedRecentId(payload.jobId);
       const next = await upsertRecentJob({
@@ -310,7 +349,7 @@ export function Popup() {
     stopWatching();
     const generation = watchGenerationRef.current;
 
-    const initialJob = await getJob(SERVICE_URL, jobId);
+    const initialJob = await getJob(serviceUrlRef.current, jobId);
     if (watchGenerationRef.current !== generation) return;
 
     await applyJobUpdate(initialJob, fileSignature, generation);
@@ -319,7 +358,7 @@ export function Popup() {
 
     setJobTransport(null);
     const watcher = createJobEventWatcher({
-      url: eventsUrl(SERVICE_URL, jobId),
+      url: eventsUrl(serviceUrlRef.current, jobId),
       onMessage: (data) => {
         if (watchGenerationRef.current !== generation) return;
         const payload = JSON.parse(data) as JobPayload;
@@ -328,7 +367,7 @@ export function Popup() {
       onPoll: async () => {
         if (watchGenerationRef.current !== generation) return;
         try {
-          const payload = await getJob(SERVICE_URL, jobId);
+          const payload = await getJob(serviceUrlRef.current, jobId);
           if (watchGenerationRef.current !== generation) return;
           await applyJobUpdate(payload, fileSignature, generation);
         } catch (err) {
@@ -426,6 +465,38 @@ export function Popup() {
           {retryToast}
         </div>
       )}
+
+      <section className="panel settings-panel">
+        <label className="field">
+          <span>Companion URL</span>
+          <input
+            type="url"
+            value={serviceUrlDraft}
+            onChange={(event) => setServiceUrlDraft(event.target.value)}
+            placeholder={DEFAULT_SETTINGS.serviceUrl}
+            autoComplete="off"
+            spellCheck={false}
+            disabled={!settingsReady || settingsSaving}
+          />
+        </label>
+        <div className="settings-panel__row">
+          <p className="settings-panel__hint">
+            Default is local ({DEFAULT_SETTINGS.serviceUrl}). Use your Railway URL for remote.
+          </p>
+          <button
+            className="btn btn--ghost"
+            type="button"
+            onClick={() => void handleSaveServiceUrl()}
+            disabled={
+              !settingsReady ||
+              settingsSaving ||
+              normalizeServiceUrl(serviceUrlDraft) === serviceUrl
+            }
+          >
+            {settingsSaving ? "Saving…" : "Save"}
+          </button>
+        </div>
+      </section>
 
       {recentJobs.length > 0 && (
         <section className="panel recent-panel">
@@ -532,7 +603,7 @@ export function Popup() {
             {downloads.map((artifact) => (
               <a
                 className={`download download--${artifact.kind}${isHeroTranscript(artifact.label) ? " download--hero" : ""}`}
-                href={artifactUrl(SERVICE_URL, job.jobId, artifact.id)}
+                href={artifactUrl(serviceUrlRef.current, job.jobId, artifact.id)}
                 key={artifact.id}
                 target="_blank"
                 title={`Download ${artifact.label}`}

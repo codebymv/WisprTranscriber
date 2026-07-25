@@ -17,6 +17,7 @@ export const COMPANION_SRC = path.join(COMPANION_ROOT, "src");
 export const CRITICAL_MODULE_SPECIFIERS = Object.freeze([
   "./supportedAudio.js",
   "./config.js",
+  "./cors.js",
   "./jobs.js",
   "./process.js",
   "./transcribe.js",

@@ -186,6 +186,32 @@ body {
   }
 }
 
+.settings-panel {
+  padding: 14px 16px 12px;
+}
+
+.settings-panel__row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.settings-panel__hint {
+  margin: 0;
+  flex: 1;
+  color: var(--color-muted);
+  font-size: 11px;
+  line-height: 1.35;
+}
+
+.settings-panel .btn--ghost {
+  flex: none;
+  padding: 7px 12px;
+  font-size: 12px;
+}
+
 .companion-status {
   display: flex;
   align-items: center;

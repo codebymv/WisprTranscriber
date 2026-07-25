@@ -9,7 +9,7 @@
     "dev:preview": "vite --port 5175",
     "build": "tsc --noEmit && vite build",
     "typecheck": "tsc --noEmit",
-    "test": "node --test ./test/jobEvents.test.js ./test/companionStatus.test.js ./test/cancelRecovery.test.js ./test/jobLoadRecovery.test.js ./test/uploadRecovery.test.js"
+    "test": "node --test ./test/jobEvents.test.js ./test/companionStatus.test.js ./test/cancelRecovery.test.js ./test/jobLoadRecovery.test.js ./test/uploadRecovery.test.js ./test/serviceUrl.test.js"
   },
   "dependencies": {
     "react": "^18.3.1",

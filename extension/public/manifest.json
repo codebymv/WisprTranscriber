@@ -16,6 +16,11 @@
   "permissions": ["storage"],
   "host_permissions": [
     "http://127.0.0.1:8788/*",
+    "http://localhost:8788/*",
     "https://*.up.railway.app/*"
+  ],
+  "optional_host_permissions": [
+    "http://*/*",
+    "https://*/*"
   ]
 }

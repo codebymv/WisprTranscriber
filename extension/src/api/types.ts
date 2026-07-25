@@ -28,10 +28,12 @@ export type JobPayload = {
   updatedAt: string;
 };
 
+import { DEFAULT_SERVICE_URL } from "./serviceUrl.js";
+
 export type Settings = {
   serviceUrl: string;
 };
 
 export const DEFAULT_SETTINGS: Settings = {
-  serviceUrl: "https://wisprtranscriber.up.railway.app",
+  serviceUrl: DEFAULT_SERVICE_URL,
 };

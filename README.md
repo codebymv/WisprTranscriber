@@ -35,6 +35,20 @@ From this folder (`zEXTENSIONS/Wispr-Transcriber`):
 
 5. Load `extension\dist` in Chrome as an unpacked extension.
 
+## Companion URL (local or remote)
+
+The extension defaults to `http://127.0.0.1:8788`. In the popup, set **Companion URL** to point at a remote deploy (for example `https://wisprtranscriber.up.railway.app`), then **Save**. Chrome may prompt for host access for custom origins; Railway `*.up.railway.app` is already allowed in the manifest.
+
+### CORS (extension → companion)
+
+The companion allowlists:
+
+- `chrome-extension://…` (reflects the extension Origin)
+- `http(s)://localhost` and `http(s)://127.0.0.1` (local UI / preview)
+- No `Origin` header (curl / health checks) → `Access-Control-Allow-Origin: *`
+
+Other browser Origins are denied. This is required so a Railway-hosted companion can answer extension `fetch` / SSE from `chrome-extension://` pages.
+
 ## Notes
 
 - Default model is `whisper-1` to match the existing manual workflow.

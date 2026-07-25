@@ -1,4 +1,5 @@
 import { DEFAULT_SETTINGS, Settings } from "../api/types";
+import { isValidServiceUrl, normalizeServiceUrl, serviceUrlOriginPattern } from "../api/serviceUrl.js";
 
 const STORAGE_KEY = "wisprSettings";
 let memoryFallback: Settings | null = null;
@@ -8,18 +9,55 @@ function hasChromeStorage(): boolean {
 }
 
 export async function loadSettings(): Promise<Settings> {
-  if (!hasChromeStorage()) return { ...DEFAULT_SETTINGS, ...(memoryFallback ?? {}) };
+  if (!hasChromeStorage()) {
+    return { ...DEFAULT_SETTINGS, ...(memoryFallback ?? {}) };
+  }
   const stored = await chrome.storage.local.get(STORAGE_KEY);
-  return { ...DEFAULT_SETTINGS, ...((stored?.[STORAGE_KEY] ?? {}) as Partial<Settings>) };
+  const partial = (stored?.[STORAGE_KEY] ?? {}) as Partial<Settings>;
+  return {
+    ...DEFAULT_SETTINGS,
+    ...partial,
+    serviceUrl: normalizeServiceUrl(partial.serviceUrl ?? DEFAULT_SETTINGS.serviceUrl),
+  };
 }
 
-export async function saveSettings(settings: Settings): Promise<void> {
+/**
+ * Persist companion base URL. Requests optional host permission when needed.
+ * @returns normalized settings, or throws on invalid URL / denied permission
+ */
+export async function saveSettings(settings: Settings): Promise<Settings> {
+  if (!isValidServiceUrl(settings.serviceUrl)) {
+    throw new Error("Companion URL must be a valid http(s) address.");
+  }
   const normalized: Settings = {
-    serviceUrl: (settings.serviceUrl.trim() || DEFAULT_SETTINGS.serviceUrl).replace(/\/+$/, ""),
+    serviceUrl: normalizeServiceUrl(settings.serviceUrl),
   };
+
+  const granted = await ensureHostPermission(normalized.serviceUrl);
+  if (!granted) {
+    throw new Error("Chrome blocked host access for that companion URL.");
+  }
+
   if (!hasChromeStorage()) {
     memoryFallback = normalized;
-    return;
+    return normalized;
   }
   await chrome.storage.local.set({ [STORAGE_KEY]: normalized });
+  return normalized;
+}
+
+async function ensureHostPermission(serviceUrl: string): Promise<boolean> {
+  const originPattern = serviceUrlOriginPattern(serviceUrl);
+  if (!originPattern) return false;
+  if (typeof chrome === "undefined" || !chrome.permissions?.request) {
+    // Dev / offline: no permissions API — treat as granted.
+    return true;
+  }
+  try {
+    const already = await chrome.permissions.contains({ origins: [originPattern] });
+    if (already) return true;
+    return await chrome.permissions.request({ origins: [originPattern] });
+  } catch {
+    return false;
+  }
 }
