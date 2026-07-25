@@ -1,5 +1,6 @@
+import { ensureHostPermission } from "../api/hostPermissions.js";
 import { DEFAULT_SETTINGS, Settings } from "../api/types";
-import { isValidServiceUrl, normalizeServiceUrl, serviceUrlOriginPattern } from "../api/serviceUrl.js";
+import { isValidServiceUrl, normalizeServiceUrl } from "../api/serviceUrl.js";
 
 const STORAGE_KEY = "wisprSettings";
 let memoryFallback: Settings | null = null;
@@ -44,20 +45,4 @@ export async function saveSettings(settings: Settings): Promise<Settings> {
   }
   await chrome.storage.local.set({ [STORAGE_KEY]: normalized });
   return normalized;
-}
-
-async function ensureHostPermission(serviceUrl: string): Promise<boolean> {
-  const originPattern = serviceUrlOriginPattern(serviceUrl);
-  if (!originPattern) return false;
-  if (typeof chrome === "undefined" || !chrome.permissions?.request) {
-    // Dev / offline: no permissions API — treat as granted.
-    return true;
-  }
-  try {
-    const already = await chrome.permissions.contains({ origins: [originPattern] });
-    if (already) return true;
-    return await chrome.permissions.request({ origins: [originPattern] });
-  } catch {
-    return false;
-  }
 }
