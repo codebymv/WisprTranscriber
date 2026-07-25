@@ -1,3 +1,4 @@
+import { parseCompanionResponse } from "./companionResponse.js";
 import { normalizeServiceUrl } from "./serviceUrl.js";
 import { HealthPayload, JobPayload } from "./types";
 
@@ -48,9 +49,5 @@ export function eventsUrl(serviceUrl: string, jobId: string): string {
 
 async function parseJson<T>(response: Response): Promise<T> {
   const text = await response.text();
-  const payload = text ? JSON.parse(text) : {};
-  if (!response.ok) {
-    throw new Error(payload?.error || `Request failed with ${response.status}`);
-  }
-  return payload as T;
+  return parseCompanionResponse(response.status, response.ok, text) as T;
 }
