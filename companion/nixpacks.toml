@@ -1,6 +1,12 @@
+# Railway: set service Root Directory to companion/ (this folder).
+# Repo-level shared/ is outside the deploy root and must not be imported at runtime.
+
 [phases.setup]
 nixPkgs = ["...", "ffmpeg"]
 aptPkgs = ["...", "ffmpeg"]
+
+[phases.build]
+cmds = ["npm run check:boot"]
 
 [start]
 cmd = "node src/server.js"

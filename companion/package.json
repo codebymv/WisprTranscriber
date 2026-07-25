@@ -6,6 +6,7 @@
   "type": "module",
   "scripts": {
     "start": "node src/server.js",
+    "check:boot": "node src/bootCheck.js",
     "test": "node --test"
   },
   "engines": {

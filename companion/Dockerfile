@@ -1,5 +1,6 @@
-# Build context = companion/ (Railway root directory).
-# Do not import ../../shared — that resolves to /shared outside /app.
+# Deploy root MUST be companion/ (Railway Root Directory = companion).
+# Build context is this folder only — repo-level shared/ is not available in the image.
+# Do not import ../../shared — with WORKDIR=/app that resolves to /shared and crashes boot.
 FROM node:20-bookworm-slim
 
 RUN apt-get update \
@@ -12,6 +13,9 @@ COPY package*.json ./
 RUN npm install --omit=dev
 
 COPY . .
+
+# Fail the image build if critical modules cannot resolve inside companion/.
+RUN npm run check:boot
 
 ENV NODE_ENV=production
 EXPOSE 8788

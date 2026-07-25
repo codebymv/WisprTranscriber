@@ -3,6 +3,7 @@ import { mkdir, writeFile } from "node:fs/promises";
 import http from "node:http";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { assertBootReady } from "./bootCheck.js";
 import {
   VERSION,
   executableExists,
@@ -23,6 +24,7 @@ import { runJob } from "./process.js";
 import { validateUploadFiles } from "./uploadValidation.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+await assertBootReady();
 loadDotEnv(path.resolve(__dirname, "..", ".env"));
 
 const config = getConfig();
